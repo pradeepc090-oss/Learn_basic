@@ -68,12 +68,15 @@ Maven's standard folder convention matters: main code in `src/main/java`, static
 It uses a **multi-stage build**: one stage compiles, a second stage keeps only what is needed to run. Result: a small, safer final image (no Maven, no source code, no compiler).
 
 ```dockerfile
+# syntax=docker/dockerfile:1                  # enables BuildKit features (cache mounts)
 FROM maven:3.9-eclipse-temurin-17 AS build   # stage 1: has Maven + JDK
 WORKDIR /workspace                            # working folder inside the image
 COPY pom.xml .                                # copy only pom first...
-RUN mvn -B -q dependency:go-offline           # ...so downloads are cached in a layer
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -q dependency:resolve              # ...so dependencies are fetched and cached
 COPY src ./src                                # now copy source (changes often)
-RUN mvn -B clean package                      # compile + test + build the jar
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B clean package                      # compile + test + build the jar
 
 FROM eclipse-temurin:17-jre-alpine            # stage 2: only a JRE, tiny Alpine Linux
 WORKDIR /app
@@ -86,7 +89,9 @@ HEALTHCHECK ... wget http://localhost:8080/health   # Docker marks the container
 ENTRYPOINT ["java", "-jar", "app.jar"]        # the command run when the container starts
 ```
 
-Why `COPY pom.xml` before `COPY src`? Docker caches each instruction as a **layer**. If only your source changed, the dependency-download layer is reused and the build is much faster.
+Why `COPY pom.xml` before `COPY src`? Docker caches each instruction as a **layer**. If only your source changed, the dependency layer is reused and the build is much faster.
+
+`--mount=type=cache,target=/root/.m2` gives the build a persistent Maven repository that survives across builds, so jars are downloaded once instead of on every build. (Avoid `mvn dependency:go-offline` here — it resolves every plugin's full dependency tree and can take 15+ minutes.)
 
 | Instruction | What it does |
 | --- | --- |
@@ -94,9 +99,11 @@ Why `COPY pom.xml` before `COPY src`? Docker caches each instruction as a **laye
 | `WORKDIR` | Sets the current directory for later instructions |
 | `COPY` | Copies files from your machine (or an earlier stage) into the image |
 | `RUN` | Executes a command **at build time**, saving the result in the image |
+| `RUN --mount=type=cache` | Same, but with a folder that persists between builds (not stored in the image) |
 | `ENV` | Sets an environment variable |
 | `EXPOSE` | Documentation of the listening port (does not publish it) |
 | `USER` | Which user later instructions and the app run as |
+| `HEALTHCHECK` | Command Docker runs periodically to report healthy/unhealthy |
 | `ENTRYPOINT` | The command executed **at run time** when the container starts |
 
 ### 2.3 `.dockerignore` and `.gitignore`
@@ -320,7 +327,8 @@ git push -u origin feature/harder-mode   # 4. CI runs build + test on the PR
 | --- | --- |
 | `port is already allocated` | Something else uses 8080: `docker run -p 8081:8080 ...` or stop the other process |
 | Browser shows nothing | Check `docker ps` and `docker logs <name>`; make sure you published the port with `-p` |
-| `docker build` seems stuck | It is downloading base images the first time; later builds use the cache |
+| `docker build` seems stuck | The first build downloads the Maven and JRE base images and all Java dependencies; later builds reuse the cache |
+| `docker build` takes 15+ minutes on the Maven step | Don't use `dependency:go-offline`; use `dependency:resolve` with a `/root/.m2` cache mount as in this Dockerfile |
 | `permission denied` on the Docker socket | Add yourself to the `docker` group and re-login |
 | CI fails at "Log in to Docker Hub" | The `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets are missing or wrong |
 | Tests fail in CI but pass locally | Run `mvn clean verify` (clean!) locally; check the uploaded Surefire report artifact |

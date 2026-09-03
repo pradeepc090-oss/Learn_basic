@@ -237,9 +237,9 @@ PORT=9090 java -jar target/sample-app.jar   # run on a different port
 | `docker stop guess-game` | Stops it |
 | `docker rm guess-game` | Removes a stopped container |
 | `docker rmi sample-app:local` | Deletes the image |
-| `docker tag sample-app:local <user>/sample-app:1.0.0` | Adds a Docker Hub-style name |
-| `docker login` / `docker push <user>/sample-app:1.0.0` | Publishes to Docker Hub |
-| `docker pull <user>/sample-app:latest` | Downloads an image |
+| `docker tag sample-app:local sandeepaws2020/learn_basic:1.0.0` | Adds a Docker Hub-style name |
+| `docker login` / `docker push sandeepaws2020/learn_basic:1.0.0` | Publishes to Docker Hub |
+| `docker pull sandeepaws2020/learn_basic:latest` | Downloads an image |
 
 Compose:
 
@@ -269,7 +269,7 @@ Compose:
 Local repo → GitHub, once:
 
 ```bash
-git remote add origin https://github.com/<user>/sample-app.git
+git remote add origin https://github.com/Sandeepaws2020/Learn_basic.git
 git push -u origin main
 ```
 
@@ -291,18 +291,28 @@ The first build takes a while because Docker downloads the Maven and JRE base im
 
 ## 6. Publishing to Docker Hub from CI
 
+This project publishes to **`sandeepaws2020/learn_basic`** on Docker Hub.
+
 1. Create a free account at hub.docker.com.
 2. Account Settings → Security → **New Access Token** (use a token, not your password).
-3. In GitHub: Settings → Secrets and variables → Actions → **New repository secret**:
-   - `DOCKERHUB_USERNAME` — your Docker Hub username
+3. In GitHub (repo `Sandeepaws2020/Learn_basic`): Settings → Secrets and variables → Actions → **New repository secret**:
+   - `DOCKERHUB_USERNAME` — `sandeepaws2020`
    - `DOCKERHUB_TOKEN` — the token from step 2
 4. Push to `main`. The Actions tab shows the run; when it finishes, the image exists as
-   `<user>/sample-app:latest` and `<user>/sample-app:<sha>`.
+   `sandeepaws2020/learn_basic:latest` and `sandeepaws2020/learn_basic:<sha>`.
 
 Run the published image on any machine with Docker:
 
 ```bash
-docker run --rm -p 8080:8080 <user>/sample-app:latest
+docker run --rm -p 8080:8080 sandeepaws2020/learn_basic:latest
+```
+
+Push the image manually (without CI):
+
+```bash
+docker login -u sandeepaws2020
+docker tag sample-app:local sandeepaws2020/learn_basic:latest
+docker push sandeepaws2020/learn_basic:latest
 ```
 
 ---

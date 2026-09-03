@@ -1,0 +1,9 @@
+services:
+  app:
+    build: .
+    image: sample-app:local
+    ports:
+      - "8080:8080"
+    environment:
+      APP_NAME: Sandeep
+      PORT: 8080
